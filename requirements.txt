@@ -1,3 +1,6 @@
 altair
+numpy
 pandas
+pydeck
 streamlit
+scikit-learn

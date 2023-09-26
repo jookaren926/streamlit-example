@@ -1,38 +1,55 @@
-from collections import namedtuple
-import altair as alt
-import math
-import pandas as pd
+#### Import packages
+
 import streamlit as st
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
 
-"""
-# Welcome to Streamlit!
+df = pd.read_csv("customer_reviews.csv", index_col=0) ## Load Data, Create Dataset
+df['pos_rev'] = np.where(df['rating']>=4,1,0)
+X = df['reviewContent'] 
+y = df['pos_rev']
 
-Edit `/streamlit_app.py` to customize this app to your heart's desire :heart:
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=987)
 
-If you have any questions, checkout our [documentation](https://docs.streamlit.io) and [community
-forums](https://discuss.streamlit.io).
+#Vectorize using TfidVectorizer
+tfidfvec = TfidfVectorizer(stop_words = 'english')
+X_train_vectorized_tfidf = tfidfvec.fit_transform(X_train.values)
+X_test_vectorized_tfidf = tfidfvec.transform(X_test.values)
 
-In the meantime, below is an example of what you can do with just a few lines of code:
-"""
+#Fit and train a classification models
+    # Logistic regression
+lr_class_tfidf = LogisticRegression(max_iter=5000) #Increase max_iter to 5000
+lr_class_tfidf.fit(X_train_vectorized_tfidf, y_train)
+lr_predictions_tfidf = lr_class_tfidf.predict(X_test_vectorized_tfidf)
+
+def textclass_pred(text):
+        # Create a new DataFrmae with the provided text
+    newdf = pd.DataFrame({'text':[text]})
+    
+    # Transform the input text using the same CountVectorizer instance
+    newdf_tfidfvec = tfidfvec.transform(newdf['text'])
+    
+    # Create dataframe with text and predicted label
+    prediction = lr_class_tfidf.predict(newdf_tfidfvec)
+    
+    # Define sentiment labels
+    sentiment_labels = {0: 'Negative', 1: 'Positive'}
+
+    # Return a statement indicating whether the text is positive or negative
+    sentiment = sentiment_labels[prediction[0]]
+    return sentiment
 
 
-with st.echo(code_location='below'):
-    total_points = st.slider("Number of points in spiral", 1, 5000, 2000)
-    num_turns = st.slider("Number of turns in spiral", 1, 100, 9)
 
-    Point = namedtuple('Point', 'x y')
-    data = []
+st.markdown("### Enter your review, we'll guess how you feel!")
 
-    points_per_turn = total_points / num_turns
+user_input = st.text_input("Enter review")
 
-    for curr_point_num in range(total_points):
-        curr_turn, i = divmod(curr_point_num, points_per_turn)
-        angle = (curr_turn + 1) * 2 * math.pi * i / points_per_turn
-        radius = curr_point_num / total_points
-        x = radius * math.cos(angle)
-        y = radius * math.sin(angle)
-        data.append(Point(x, y))
-
-    st.altair_chart(alt.Chart(pd.DataFrame(data), height=500, width=500)
-        .mark_circle(color='#0068c9', opacity=0.5)
-        .encode(x='x:Q', y='y:Q'))
+# Add an "Enter" button
+if st.button("Enter"):
+    if user_input:
+        st.markdown("You Feel...")
+        st.write(textclass_pred(user_input),"!!!")
